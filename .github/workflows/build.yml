@@ -13,10 +13,10 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          - macos-latest
+          #- macos-latest
     runs-on: ${{ matrix.os }}
     steps:
       - name: asdf_plugin_test
         uses: asdf-vm/actions/plugin-test@v1
         with:
-          command: httpx --completion zsh
+          command: httpx --version

@@ -43,7 +43,7 @@ asdf install httpx latest
 asdf global httpx latest
 
 # Now httpx commands are available
-httpx --completion zsh
+httpx --version
 ```
 
 Check [asdf](https://github.com/asdf-vm/asdf) readme for more instructions on how to

@@ -2,10 +2,9 @@
 
 set -euo pipefail
 
-# TODO: Ensure this is the correct GitHub homepage where releases can be downloaded for httpx.
-GH_REPO="https://github.com/l-lin/asdf-httpx"
+GH_REPO="https://github.com/servicex-sh/httpx"
 TOOL_NAME="httpx"
-TOOL_TEST="httpx --completion zsh"
+TOOL_TEST="httpx --version"
 
 fail() {
   echo -e "asdf-$TOOL_NAME: $*"
@@ -31,8 +30,6 @@ list_github_tags() {
 }
 
 list_all_versions() {
-  # TODO: Adapt this. By default we simply list the tag names from GitHub releases.
-  # Change this function if httpx has other means of determining installable versions.
   list_github_tags
 }
 
@@ -41,8 +38,24 @@ download_release() {
   version="$1"
   filename="$2"
 
-  # TODO: Adapt the release URL convention for httpx
-  url="$GH_REPO/archive/v${version}.tar.gz"
+  local arch="$(get_arch)"
+  local platform="$(get_platform)"
+
+  case $platform in
+  darwin)
+    url="$GH_REPO/releases/download/v${version}/httpx-${version}-${arch}-apple-${platform}.tar"
+    ;;
+  linux)
+    url="$GH_REPO/releases/download/v${version}/httpx-${platform}-${arch}.zip"
+    ;;
+  windows)
+    url="$GH_REPO/releases/download/v${version}/httpx-${platform}-${arch}.exe.zip"
+    ;;
+  *)
+    echo "Unknown platform: ${platform}"
+    exit 1
+    ;;
+  esac
 
   echo "* Downloading $TOOL_NAME release $version..."
   curl "${curl_opts[@]}" -o "$filename" -C - "$url" || fail "Could not download $url"
@@ -58,12 +71,18 @@ install_version() {
   fi
 
   (
-    mkdir -p "$install_path"
-    cp -r "$ASDF_DOWNLOAD_PATH"/* "$install_path"
+    mkdir -p "$install_path/bin"
 
-    # TODO: Asert httpx executable exists.
     local tool_cmd
     tool_cmd="$(echo "$TOOL_TEST" | cut -d' ' -f1)"
+
+    local first_extracted_file=$(ls -1 $ASDF_DOWNLOAD_PATH | head -n 1)
+    echo "Copying $first_extracted_file to $install_path/bin/$tool_cmd"
+    cp -r "$ASDF_DOWNLOAD_PATH/$first_extracted_file" "$install_path/bin/$tool_cmd"
+
+    echo "Setting $install_path/bin/$tool_cmd as executable"
+    chmod +x "$install_path/bin/$tool_cmd"
+
     test -x "$install_path/bin/$tool_cmd" || fail "Expected $install_path/bin/$tool_cmd to be executable."
 
     echo "$TOOL_NAME $version installation was successful!"
@@ -71,4 +90,40 @@ install_version() {
     rm -rf "$install_path"
     fail "An error ocurred while installing $TOOL_NAME $version."
   )
+}
+
+get_platform() {
+  echo "$(uname | tr '[:upper:]' '[:lower:]')"
+}
+
+get_arch() {
+  local arch=$(uname -m)
+  if [[ "$arch" != "x86_64" ]]; then
+    echo "Unsupported: ${arch}"
+    exit 1
+  fi
+  echo "$arch"
+}
+
+get_archive_extension() {
+  local platform=$(get_platform)
+  case $platform in
+  linux)
+    echo "zip"
+    ;;
+  *)
+    echo "tar.gz"
+    ;;
+  esac
+}
+
+extract_archive() {
+  local release_file=$1
+  local target_folder=$2
+
+  if [[ $release_file =~ .*\.zip$ ]]; then
+    unzip $release_file -d $target_folder
+  else
+    tar xzvf "$release_file" -C $target_folder
+  fi
 }
